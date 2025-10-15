@@ -1,0 +1,4 @@
+project_id = "atvczpxrvhjfbsbjfumu"
+
+[functions.add-beer]
+verify_jwt = false
