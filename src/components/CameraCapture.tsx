@@ -54,14 +54,24 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
 
   const getCameras = async () => {
     try {
+      console.log('🎥 Searching for cameras...');
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = devices.filter(device => device.kind === 'videoinput');
+      
+      console.log('📹 Cameras found:', videoDevices.length);
+      videoDevices.forEach((device, index) => {
+        console.log(`  Camera ${index + 1}: ${device.label || 'Unknown'} (ID: ${device.deviceId.slice(0, 12)}...)`);
+      });
+      
       setCameras(videoDevices);
       if (videoDevices.length > 0) {
         setSelectedCamera(videoDevices[0].deviceId);
+        console.log('✅ Default camera selected:', videoDevices[0].label || 'Camera 1');
+      } else {
+        console.warn('⚠️ No cameras found on this device');
       }
     } catch (error) {
-      console.error('Error getting cameras:', error);
+      console.error('❌ Error getting cameras:', error);
       toast.error('לא ניתן לקבל רשימת מצלמות');
     }
   };
@@ -84,13 +94,31 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
       
       console.log('📋 Camera constraints:', constraints);
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      console.log('✅ Camera access granted!', mediaStream);
+      console.log('✅ Camera access granted!');
+      console.log('📊 Stream details:', {
+        active: mediaStream.active,
+        id: mediaStream.id,
+        tracks: mediaStream.getTracks().length
+      });
+      
+      const videoTrack = mediaStream.getVideoTracks()[0];
+      if (videoTrack) {
+        const settings = videoTrack.getSettings();
+        console.log('🎬 Video track settings:', {
+          label: videoTrack.label,
+          width: settings.width,
+          height: settings.height,
+          frameRate: settings.frameRate,
+          facingMode: settings.facingMode
+        });
+      }
       
       setStream(mediaStream);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
         await videoRef.current.play();
-        console.log('▶️ Video playing');
+        console.log('▶️ Video playing successfully');
+        console.log('✅ Camera is CONNECTED and WORKING!');
       }
     } catch (error: any) {
       console.error('❌ Error accessing camera:', error);
