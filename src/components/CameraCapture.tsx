@@ -265,7 +265,7 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack }: CameraCapturePro
                 <SelectValue placeholder="בחר מצלמה" />
               </SelectTrigger>
               <SelectContent>
-                {cameras.map((camera) => (
+                {cameras.filter(camera => camera.deviceId).map((camera) => (
                   <SelectItem key={camera.deviceId} value={camera.deviceId}>
                     {camera.label || `מצלמה ${camera.deviceId.slice(0, 8)}`}
                   </SelectItem>
