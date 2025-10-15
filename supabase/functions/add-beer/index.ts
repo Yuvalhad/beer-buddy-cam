@@ -33,7 +33,7 @@ serve(async (req) => {
             content: [
               {
                 type: 'text',
-                text: 'Please add a realistic beer mug or glass with cold beer in the person\'s hand. Make it look natural and photorealistic. The beer should have foam on top and look refreshing.'
+                text: 'Analyze the image carefully. If there is NO hand visible in the image, add a realistic hand in a natural position holding a beer glass. If there IS a hand but it\'s NOT in a position suitable for holding a beer (e.g., hand down, pointing, waving), modify the hand position to be in a natural beer-holding pose. Then add a realistic beer mug or glass with cold beer in the hand. The beer should have foam on top and look refreshing. Make everything look natural and photorealistic.'
               },
               {
                 type: 'image_url',
