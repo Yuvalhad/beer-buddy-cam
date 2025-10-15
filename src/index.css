@@ -106,5 +106,15 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    animation: backgroundPulse 4s ease-in-out infinite;
+  }
+
+  @keyframes backgroundPulse {
+    0%, 100% {
+      background-color: hsl(0 0% 0%); /* שחור */
+    }
+    50% {
+      background-color: hsl(0 0% 85%); /* אפור בהיר */
+    }
   }
 }
