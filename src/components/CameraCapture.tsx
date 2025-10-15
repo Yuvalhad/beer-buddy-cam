@@ -1,9 +1,8 @@
 import { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Camera, RotateCcw, Sparkles, Video } from "lucide-react";
-import { toast } from "sonner";
+import { Camera, Video, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import {
   Select,
   SelectContent,
@@ -11,16 +10,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PhotoMode } from "@/types/photo-mode";
+import { createGIF, createBoomerang } from "@/utils/gifCreator";
 
-export const CameraCapture = () => {
+interface CameraCaptureProps {
+  mode: PhotoMode;
+  photoCount?: number;
+  onBack: () => void;
+}
+
+export const CameraCapture = ({ mode, photoCount = 1, onBack }: CameraCaptureProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [capturedImages, setCapturedImages] = useState<string[]>([]);
   const [editedImage, setEditedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
-  const [selectedCamera, setSelectedCamera] = useState<string>('');
+  const [selectedCamera, setSelectedCamera] = useState<string>("");
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
     getCameras();
@@ -55,7 +66,6 @@ export const CameraCapture = () => {
     try {
       console.log('Requesting camera access...');
       
-      // Stop existing stream if any
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
@@ -76,173 +86,358 @@ export const CameraCapture = () => {
       }
     } catch (error) {
       console.error('Error accessing camera:', error);
-      toast.error('לא ניתן לגשת למצלמה. אנא אפשר גישה למצלמה בהגדרות הדפדפן.');
+      toast.error('לא ניתן לגשת למצלמה');
     }
   };
 
   const capturePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
+    if (!videoRef.current || !canvasRef.current) return;
+
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(video, 0, 0);
+      const imageData = canvas.toDataURL('image/jpeg');
       
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(video, 0, 0);
-        const imageData = canvas.toDataURL('image/jpeg', 0.9);
-        setCapturedImage(imageData);
-        setEditedImage(null);
+      if (mode === 'burst' || mode === 'gif') {
+        setCapturedImages(prev => [...prev, imageData]);
+        setCurrentPhotoIndex(prev => prev + 1);
         
-        if (stream) {
-          stream.getTracks().forEach(track => track.stop());
+        if (capturedImages.length + 1 >= photoCount) {
+          toast.success(`כל התמונות נצלמו! (${photoCount})`);
+        } else {
+          toast.info(`תמונה ${capturedImages.length + 1}/${photoCount}`);
         }
+      } else {
+        setCapturedImages([imageData]);
       }
     }
   };
 
-  const addBeer = async () => {
-    if (!capturedImage) return;
+  const startRecording = () => {
+    if (!stream) return;
+
+    recordedChunksRef.current = [];
+    const mediaRecorder = new MediaRecorder(stream, {
+      mimeType: 'video/webm;codecs=vp9'
+    });
+
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        recordedChunksRef.current.push(event.data);
+      }
+    };
+
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(recordedChunksRef.current, {
+        type: 'video/webm'
+      });
+      
+      if (mode === 'boomerang') {
+        const boomerangBlob = await createBoomerang(blob);
+        const url = URL.createObjectURL(boomerangBlob);
+        setCapturedImages([url]);
+      } else {
+        const url = URL.createObjectURL(blob);
+        setCapturedImages([url]);
+      }
+      
+      setIsRecording(false);
+    };
+
+    mediaRecorderRef.current = mediaRecorder;
+    mediaRecorder.start();
+    setIsRecording(true);
+
+    if (mode === 'boomerang') {
+      setTimeout(() => {
+        mediaRecorder.stop();
+      }, 3000);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+    }
+  };
+
+  const processImages = async () => {
+    if (capturedImages.length === 0) return;
     
     setIsProcessing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('add-beer', {
-        body: { imageData: capturedImage }
-      });
+      if (mode === 'gif') {
+        const gifBlob = await createGIF(capturedImages);
+        const gifUrl = URL.createObjectURL(gifBlob);
+        setEditedImage(gifUrl);
+        toast.success('GIF נוצר!');
+      } else if (mode === 'video') {
+        const { data, error } = await supabase.functions.invoke('create-ai-video', {
+          body: { imageData: capturedImages[0] }
+        });
 
-      if (error) throw error;
-      
-      if (data.editedImageUrl) {
-        setEditedImage(data.editedImageUrl);
-        toast.success('🍺 הבירה נוספה בהצלחה!');
+        if (error) throw error;
+
+        if (data.videoUrl) {
+          setEditedImage(data.videoUrl);
+          toast.success('הסרטון נוצר! ✨');
+        }
+      } else {
+        const { data, error } = await supabase.functions.invoke('add-beer', {
+          body: { imageData: capturedImages[0] }
+        });
+
+        if (error) throw error;
+
+        if (data.editedImageUrl) {
+          setEditedImage(data.editedImageUrl);
+          toast.success('הבירה נוספה! 🍺');
+        }
       }
     } catch (error) {
-      console.error('Error adding beer:', error);
-      toast.error('אופס! משהו השתבש. נסה שוב.');
+      console.error('Error processing:', error);
+      toast.error('שגיאה בעיבוד. נסה שוב.');
     } finally {
       setIsProcessing(false);
     }
   };
 
   const reset = () => {
-    setCapturedImage(null);
+    setCapturedImages([]);
     setEditedImage(null);
+    setCurrentPhotoIndex(0);
     startCamera(selectedCamera);
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/10 flex items-center justify-center p-4">
-      <Card className="w-full max-w-4xl p-8 shadow-[var(--shadow-glow)] backdrop-blur-sm bg-card/95">
-        <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent mb-3 animate-pulse">
-            🍺 Beer Selfie
-          </h1>
-          <p className="text-muted-foreground text-lg">צלם את עצמך וקבל בירה קרה ביד! 🎉</p>
-        </div>
+  const getModeTitle = () => {
+    switch (mode) {
+      case 'single': return '🍺 Beer Selfie';
+      case 'burst': return '📸 סדרת תמונות';
+      case 'gif': return '🎬 GIF עם בירה';
+      case 'boomerang': return '🔄 בומרנג';
+      case 'video': return '✨ סרטון קסם';
+      default: return 'Beer Buddy';
+    }
+  };
 
-        <div className="space-y-6">
-          {!capturedImage && cameras.length > 0 && (
-            <div className="flex flex-col items-center gap-2">
-              <label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Video className="w-4 h-4" />
-                בחר מצלמה
-              </label>
-              <Select value={selectedCamera} onValueChange={setSelectedCamera}>
-                <SelectTrigger className="w-[280px] bg-card border-2 border-primary/20 hover:border-primary/40 transition-colors">
-                  <SelectValue placeholder="בחר מצלמה" />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-2 border-primary/20 z-50">
-                  {cameras.map((camera, index) => (
-                    <SelectItem key={camera.deviceId} value={camera.deviceId}>
-                      {camera.label || `מצלמה ${index + 1}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          
-          {!capturedImage ? (
-            <div className="relative bg-muted rounded-2xl overflow-hidden min-h-[400px] flex items-center justify-center">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover rounded-2xl shadow-lg"
-              />
-              <canvas ref={canvasRef} className="hidden" />
-              
+  const getModeDescription = () => {
+    switch (mode) {
+      case 'single': return 'צלם תמונה ואנחנו נוסיף לך בירה!';
+      case 'burst': return `צלם ${photoCount} תמונות ברצף`;
+      case 'gif': return 'צור GIF מונפש עם בירה';
+      case 'boomerang': return 'צור סרטון בלופ';
+      case 'video': return 'צור סרטון קסם עם AI';
+      default: return '';
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 p-4">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center justify-between mb-2">
+          <Button variant="ghost" onClick={onBack}>
+            <ArrowRight className="ml-2" />
+            חזור
+          </Button>
+          <h1 className="text-4xl font-bold text-center text-primary flex-1">
+            {getModeTitle()}
+          </h1>
+          <div className="w-24" />
+        </div>
+        <p className="text-center text-muted-foreground mb-6">
+          {getModeDescription()}
+        </p>
+
+        {capturedImages.length === 0 && cameras.length > 0 && (
+          <div className="mb-4">
+            <label className="flex items-center gap-2 text-sm font-medium mb-2">
+              <Video className="w-4 h-4" />
+              בחר מצלמה
+            </label>
+            <Select value={selectedCamera} onValueChange={setSelectedCamera}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="בחר מצלמה" />
+              </SelectTrigger>
+              <SelectContent>
+                {cameras.map((camera) => (
+                  <SelectItem key={camera.deviceId} value={camera.deviceId}>
+                    {camera.label || `מצלמה ${camera.deviceId.slice(0, 8)}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {mode === 'burst' && capturedImages.length > 0 && capturedImages.length < photoCount && (
+          <div className="mb-4 p-4 bg-primary/10 rounded-lg text-center">
+            <p className="text-lg font-semibold">
+              תמונה {capturedImages.length}/{photoCount}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              לחץ על הכפתור לצילום הבא
+            </p>
+          </div>
+        )}
+
+        {capturedImages.length === 0 ? (
+          <div className="relative">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              className="w-full rounded-lg shadow-lg"
+            />
+            <canvas ref={canvasRef} className="hidden" />
+            
+            {(mode === 'boomerang') && !isRecording && (
+              <Button
+                onClick={startRecording}
+                size="lg"
+                className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary hover:bg-primary/90"
+              >
+                <Camera className="mr-2" />
+                התחל הקלטה
+              </Button>
+            )}
+            {(mode === 'boomerang') && isRecording && (
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-6 py-3 rounded-full font-semibold animate-pulse">
+                מקליט...
+              </div>
+            )}
+            {(mode === 'single' || mode === 'burst' || mode === 'gif') && (
               <Button
                 onClick={capturePhoto}
                 size="lg"
-                className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-gradient-to-r from-primary to-accent hover:shadow-[var(--shadow-glow)] transition-all duration-300 hover:scale-110 text-lg px-8"
+                className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary hover:bg-primary/90"
+                disabled={mode === 'burst' && capturedImages.length >= photoCount}
               >
-                <Camera className="mr-2 h-6 w-6" />
-                צלם תמונה
+                <Camera className="mr-2" />
+                {mode === 'burst' && capturedImages.length > 0 
+                  ? `צלם תמונה ${capturedImages.length + 1}/${photoCount}`
+                  : 'צלם תמונה'
+                }
               </Button>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="text-lg font-semibold mb-3 text-center">התמונה המקורית</h3>
-                  <img
-                    src={capturedImage}
-                    alt="Captured"
-                    className="w-full rounded-2xl shadow-lg"
-                  />
-                </div>
-                
-                {editedImage && (
-                  <div>
-                    <h3 className="text-lg font-semibold mb-3 text-center">עם הבירה! 🍺</h3>
-                    <img
-                      src={editedImage}
-                      alt="With beer"
-                      className="w-full rounded-2xl shadow-lg ring-4 ring-primary/50"
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-4 justify-center">
-                {!editedImage && (
-                  <Button
-                    onClick={addBeer}
-                    disabled={isProcessing}
-                    size="lg"
-                    className="bg-gradient-to-r from-primary to-accent hover:shadow-[var(--shadow-glow)] transition-all duration-300 hover:scale-110 text-lg px-8"
-                  >
-                    {isProcessing ? (
-                      <>
-                        <Sparkles className="mr-2 h-6 w-6 animate-spin" />
-                        מוסיף בירה...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="mr-2 h-6 w-6" />
-                        הוסף לי בירה! 🍺
-                      </>
-                    )}
-                  </Button>
-                )}
-                
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {mode === 'burst' && capturedImages.length < photoCount ? (
+              <div className="relative">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full rounded-lg shadow-lg"
+                />
                 <Button
-                  onClick={reset}
-                  variant="outline"
+                  onClick={capturePhoto}
                   size="lg"
-                  className="border-2 hover:bg-secondary/50 text-lg px-8"
+                  className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary hover:bg-primary/90"
                 >
-                  <RotateCcw className="mr-2 h-5 w-5" />
-                  נסה שוב
+                  <Camera className="mr-2" />
+                  צלם תמונה {capturedImages.length + 1}/{photoCount}
                 </Button>
+                <div className="absolute top-4 left-4 flex gap-2">
+                  {capturedImages.map((img, idx) => (
+                    <img
+                      key={idx}
+                      src={img}
+                      alt={`Captured ${idx + 1}`}
+                      className="w-20 h-20 object-cover rounded-lg border-2 border-white shadow-lg"
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      </Card>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {capturedImages.length === 1 ? (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-2">התמונה המקורית</h3>
+                      <img
+                        src={capturedImages[0]}
+                        alt="Captured"
+                        className="w-full rounded-lg shadow-lg"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-2">התמונות שלך</h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        {capturedImages.map((img, idx) => (
+                          <img
+                            key={idx}
+                            src={img}
+                            alt={`Captured ${idx + 1}`}
+                            className="w-full rounded-lg shadow-lg"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {editedImage && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-2">
+                        {mode === 'gif' ? 'ה-GIF שלך 🎬' : 
+                         mode === 'video' ? 'הסרטון שלך ✨' :
+                         mode === 'boomerang' ? 'הבומרנג שלך 🔄' :
+                         'עם בירה 🍺'}
+                      </h3>
+                      {mode === 'video' || mode === 'boomerang' ? (
+                        <video
+                          src={editedImage}
+                          controls
+                          loop
+                          className="w-full rounded-lg shadow-lg"
+                        />
+                      ) : (
+                        <img
+                          src={editedImage}
+                          alt="Edited"
+                          className="w-full rounded-lg shadow-lg"
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-4 justify-center">
+                  {!editedImage && (
+                    <Button
+                      onClick={processImages}
+                      disabled={isProcessing}
+                      size="lg"
+                      className="bg-primary hover:bg-primary/90"
+                    >
+                      {isProcessing ? "מעבד..." : 
+                       mode === 'gif' ? "צור GIF 🎬" :
+                       mode === 'video' ? "צור סרטון קסם ✨" :
+                       mode === 'boomerang' ? "עבד בומרנג 🔄" :
+                       "הוסף בירה 🍺"}
+                    </Button>
+                  )}
+                  
+                  <Button
+                    onClick={reset}
+                    variant="outline"
+                    size="lg"
+                  >
+                    נסה שוב
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
