@@ -14,6 +14,7 @@ import { PhotoMode } from "@/types/photo-mode";
 import { Countdown } from "./Countdown";
 import { CameraFlash } from "./CameraFlash";
 import { ShareDialog } from "./ShareDialog";
+import { BackgroundChanger } from "./BackgroundChanger";
 
 interface CameraCaptureProps {
   mode: PhotoMode;
@@ -39,6 +40,7 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
   const [showFlash, setShowFlash] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [shareFileUrl, setShareFileUrl] = useState<string>("");
+  const [showBackgroundChanger, setShowBackgroundChanger] = useState(false);
 
   useEffect(() => {
     getCameras();
@@ -304,7 +306,13 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
     setCurrentPhotoIndex(0);
     setShowShareDialog(false);
     setShareFileUrl("");
+    setShowBackgroundChanger(false);
     startCamera(selectedCamera);
+  };
+
+  const handleBackgroundChanged = (newImageUrl: string) => {
+    setEditedImage(newImageUrl);
+    setShowBackgroundChanger(false);
   };
 
   const handleShare = async () => {
@@ -627,7 +635,7 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
                     </div>
                   )}
                   
-                  {editedImage && (
+                   {editedImage && (
                     <div className="text-center">
                       <h3 className="text-3xl font-bold mb-4 text-primary">
                         {mode === 'video' ? '✨ הסרטון שלך מוכן! ✨' : '🍺 עם בירה מושלמת! 🍺'}
@@ -648,19 +656,48 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
                       )}
                     </div>
                   )}
+
+                  {showBackgroundChanger && capturedImages.length > 0 && (
+                    <BackgroundChanger
+                      imageUrl={capturedImages[0]}
+                      onBackgroundChanged={handleBackgroundChanged}
+                    />
+                  )}
                 </div>
 
                 <div className="flex gap-6 justify-center flex-wrap mt-8">
-                  {!editedImage && (
+                  {!editedImage && !showBackgroundChanger && (
+                    <>
+                      <Button
+                        onClick={processImages}
+                        disabled={isProcessing}
+                        size="lg"
+                        className="text-2xl px-12 py-8 h-auto font-bold shadow-glow"
+                      >
+                        {isProcessing ? "מעבד... ⏳" : 
+                         mode === 'video' ? "צור סרטון קסם ✨" :
+                         "הוסף בירה 🍺"}
+                      </Button>
+                      
+                      <Button
+                        onClick={() => setShowBackgroundChanger(true)}
+                        variant="outline"
+                        size="lg"
+                        className="text-2xl px-12 py-8 h-auto font-bold"
+                      >
+                        החלף רקע 🎨
+                      </Button>
+                    </>
+                  )}
+
+                  {showBackgroundChanger && !editedImage && (
                     <Button
-                      onClick={processImages}
-                      disabled={isProcessing}
+                      onClick={() => setShowBackgroundChanger(false)}
+                      variant="secondary"
                       size="lg"
-                      className="text-2xl px-12 py-8 h-auto font-bold shadow-glow"
+                      className="text-2xl px-12 py-8 h-auto font-bold"
                     >
-                      {isProcessing ? "מעבד... ⏳" : 
-                       mode === 'video' ? "צור סרטון קסם ✨" :
-                       "הוסף בירה 🍺"}
+                      ביטול
                     </Button>
                   )}
                   
