@@ -11,7 +11,7 @@ interface ModeSelectorProps {
 export const ModeSelector = ({ onSelectMode }: ModeSelectorProps) => {
   const [burstCount, setBurstCount] = useState<number>(3);
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen p-6">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-5xl font-bold text-center mb-4 text-foreground">
           בחר את סוג הצילום

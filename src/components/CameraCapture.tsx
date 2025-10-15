@@ -255,7 +255,7 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
   }, [showCountdown, showFlash, mode]);
 
   return (
-    <div className="min-h-screen bg-background p-4">
+    <div className="min-h-screen p-4">
       {showCountdown && <Countdown onComplete={onCountdownComplete} />}
       {showFlash && <CameraFlash show={showFlash} onComplete={onFlashComplete} />}
       
