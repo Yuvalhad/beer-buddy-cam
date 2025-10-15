@@ -417,8 +417,12 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
   };
 
   useEffect(() => {
-    if (showCountdown === false && showFlash && mode === 'gif') {
-      startRecordingAfterCountdown();
+    if (showCountdown === false && showFlash) {
+      if (mode === 'gif') {
+        startRecordingAfterCountdown();
+      } else if (mode === 'single' || mode === 'burst') {
+        onFlashComplete(); // זה יקרא ל-capturePhoto
+      }
     }
   }, [showCountdown, showFlash, mode]);
 
