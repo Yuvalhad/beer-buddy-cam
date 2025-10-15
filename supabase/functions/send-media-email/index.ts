@@ -9,9 +9,9 @@ const corsHeaders = {
 
 interface SendMediaEmailRequest {
   email: string;
-  fileUrl: string;
+  fileUrls: string[];
   mediaType: 'photo' | 'gif' | 'video';
-  fileData?: string;
+  count: number;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -20,13 +20,13 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, fileUrl, mediaType, fileData }: SendMediaEmailRequest = await req.json();
+    const { email, fileUrls, mediaType, count }: SendMediaEmailRequest = await req.json();
     
     console.log('📧 Sending media email to:', email);
     console.log('📎 Media type:', mediaType);
-    console.log('🔗 File URL:', fileUrl);
+    console.log('📷 Number of files:', count);
 
-    if (!email || !fileUrl || !mediaType) {
+    if (!email || !fileUrls || !Array.isArray(fileUrls) || fileUrls.length === 0) {
       throw new Error('Missing required fields');
     }
 
@@ -42,6 +42,40 @@ const handler = async (req: Request): Promise<Response> => {
       'video': '✨'
     };
 
+    // Build media preview for multiple images
+    const mediaPreviewsHtml = fileUrls.map((url, index) => {
+      if (mediaType === 'video') {
+        return `
+          <div class="media-preview" style="margin: 20px 0;">
+            <p style="font-weight: bold; margin-bottom: 10px;">סרטון ${index + 1}</p>
+            <video controls style="width: 100%;">
+              <source src="${url}" type="video/mp4">
+            </video>
+          </div>
+        `;
+      } else if (mediaType === 'gif') {
+        return `
+          <div class="media-preview" style="margin: 20px 0;">
+            <p style="font-weight: bold; margin-bottom: 10px;">GIF ${index + 1}</p>
+            <video autoplay loop muted playsinline style="width: 100%;">
+              <source src="${url}" type="video/webm">
+            </video>
+          </div>
+        `;
+      } else {
+        return `
+          <div class="media-preview" style="margin: 20px 0;">
+            <p style="font-weight: bold; margin-bottom: 10px; color: #333;">תמונה ${index + 1}</p>
+            <img src="${url}" alt="תמונה ${index + 1}" style="width: 100%; border-radius: 10px;" />
+          </div>
+        `;
+      }
+    }).join('');
+
+    const pluralTitle = count > 1 
+      ? `${count} ${mediaTypeHebrew[mediaType]}${mediaType === 'photo' ? 'ות' : 'ים'} שלך`
+      : `ה${mediaTypeHebrew[mediaType]} שלך`;
+
     // Send email using Resend API
     const emailResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -52,7 +86,7 @@ const handler = async (req: Request): Promise<Response> => {
       body: JSON.stringify({
         from: "Beer Buddy <onboarding@resend.dev>",
         to: [email],
-        subject: `${mediaTypeEmoji[mediaType]} היצירה שלך מ-Beer Buddy מוכנה!`,
+        subject: `${mediaTypeEmoji[mediaType]} ${pluralTitle} מ-Beer Buddy ${count > 1 ? 'מוכנים' : 'מוכן'}!`,
         html: `
         <!DOCTYPE html>
         <html dir="rtl" lang="he">
@@ -100,21 +134,6 @@ const handler = async (req: Request): Promise<Response> => {
               line-height: 1.6;
               margin-bottom: 30px;
             }
-            .download-btn {
-              display: inline-block;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              color: white;
-              text-decoration: none;
-              padding: 16px 40px;
-              border-radius: 50px;
-              font-weight: bold;
-              font-size: 18px;
-              box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
-              transition: transform 0.2s;
-            }
-            .download-btn:hover {
-              transform: translateY(-2px);
-            }
             .footer {
               background: #f8f9fa;
               padding: 20px;
@@ -141,36 +160,16 @@ const handler = async (req: Request): Promise<Response> => {
               <h1>${mediaTypeEmoji[mediaType]} Beer Buddy ${mediaTypeEmoji[mediaType]}</h1>
             </div>
             <div class="content">
-              <h2>ה${mediaTypeHebrew[mediaType]} שלך מוכן${mediaType === 'photo' ? 'ה' : ''}! 🎉</h2>
+              <h2>${pluralTitle} ${count > 1 ? 'מוכנים' : 'מוכן'}! 🎉</h2>
               <p>
                 תודה שהשתמשת ב-Beer Buddy!<br>
-                ה${mediaTypeHebrew[mediaType]} המדהים${mediaType === 'photo' ? 'ה' : ''} שלך ממתין${mediaType === 'photo' ? 'ה' : ''} לך למטה.
+                ${count > 1 ? `${count} ${mediaTypeHebrew[mediaType]}${mediaType === 'photo' ? 'ות' : 'ים'} מדהימים` : `ה${mediaTypeHebrew[mediaType]} המדהים`} שלך ממתינ${count > 1 ? 'ים' : mediaType === 'photo' ? 'ה' : ''} לך למטה.
               </p>
               
-              ${mediaType === 'video' ? `
-                <div class="media-preview">
-                  <video controls style="width: 100%;">
-                    <source src="${fileUrl}" type="video/mp4">
-                  </video>
-                </div>
-              ` : mediaType === 'gif' ? `
-                <div class="media-preview">
-                  <video autoplay loop muted playsinline style="width: 100%;">
-                    <source src="${fileUrl}" type="video/webm">
-                  </video>
-                </div>
-              ` : fileData ? `
-                <div class="media-preview">
-                  <img src="${fileData}" alt="התמונה שלך" />
-                </div>
-              ` : ''}
-              
-              <a href="${fileUrl}" class="download-btn" download>
-                📥 הורד עכשיו
-              </a>
+              ${mediaPreviewsHtml}
               
               <p style="margin-top: 30px; font-size: 14px; color: #999;">
-                הקישור תקף למשך 7 ימים
+                ${count > 1 ? 'הקישורים תקפים' : 'הקישור תקף'} למשך 7 ימים
               </p>
             </div>
             <div class="footer">

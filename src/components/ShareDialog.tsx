@@ -15,7 +15,7 @@ import { toast } from "sonner";
 interface ShareDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  fileUrl: string;
+  fileUrl: string; // Can be comma-separated URLs for burst mode
   mediaType: 'photo' | 'gif' | 'video';
   onEmailSent?: () => void;
 }
@@ -29,6 +29,7 @@ export const ShareDialog = ({
 }: ShareDialogProps) => {
   const [email, setEmail] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const fileUrls = fileUrl.split(',').filter(url => url.trim());
 
   const handleSendEmail = async () => {
     if (!email.trim()) {
@@ -44,14 +45,6 @@ export const ShareDialog = ({
 
     setIsSending(true);
     try {
-      const response = await fetch(fileUrl);
-      const blob = await response.blob();
-      const base64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(blob);
-      });
-
       const { data, error } = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-media-email`,
         {
@@ -62,9 +55,9 @@ export const ShareDialog = ({
           },
           body: JSON.stringify({
             email,
-            fileUrl,
+            fileUrls: fileUrls,
             mediaType,
-            fileData: base64
+            count: fileUrls.length
           })
         }
       ).then(res => res.json());
@@ -84,26 +77,49 @@ export const ShareDialog = ({
   };
 
   const handleDownload = () => {
-    const a = document.createElement('a');
-    a.href = fileUrl;
-    a.download = `beer-buddy-${mediaType}-${Date.now()}.${mediaType === 'video' ? 'mp4' : mediaType === 'gif' ? 'webm' : 'jpg'}`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    toast.success("הורדה החלה! 📥");
+    fileUrls.forEach((url, index) => {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `beer-buddy-${mediaType}-${Date.now()}-${index + 1}.${mediaType === 'video' ? 'mp4' : mediaType === 'gif' ? 'webm' : 'jpg'}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    });
+    toast.success(fileUrls.length > 1 ? `${fileUrls.length} קבצים הורדו! 📥` : "הורדה החלה! 📥");
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl text-center">שתף את היצירה שלך! 🎉</DialogTitle>
           <DialogDescription className="text-center">
-            שלח במייל או סרוק את הברקוד להורדה
+            {fileUrls.length > 1 
+              ? `${fileUrls.length} תמונות - שלח במייל או סרוק להורדה`
+              : 'שלח במייל או סרוק את הברקוד להורדה'
+            }
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-6 py-4">
+          {/* Images Preview for burst mode */}
+          {fileUrls.length > 1 && (
+            <div className="grid grid-cols-2 gap-3">
+              {fileUrls.map((url, index) => (
+                <div key={index} className="relative group">
+                  <img 
+                    src={url} 
+                    alt={`תמונה ${index + 1}`}
+                    className="w-full rounded-lg border-2 border-primary/30 transition-transform group-hover:scale-105"
+                  />
+                  <div className="absolute top-2 right-2 bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-bold shadow-lg">
+                    {index + 1}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          
           {/* Email Input */}
           <div className="space-y-3">
             <label className="text-sm font-medium flex items-center gap-2">
@@ -145,14 +161,17 @@ export const ShareDialog = ({
             <p className="text-sm font-medium text-center">סרוק להורדה</p>
             <div className="flex justify-center p-4 bg-white rounded-lg">
               <QRCodeSVG 
-                value={fileUrl} 
+                value={fileUrls[0]} 
                 size={200}
                 level="H"
                 includeMargin
               />
             </div>
             <p className="text-xs text-muted-foreground text-center">
-              סרוק עם המצלמה של הטלפון להורדה ישירה
+              {fileUrls.length > 1 
+                ? 'סרוק כדי לקבל קישור לכל התמונות'
+                : 'סרוק עם המצלמה של הטלפון להורדה ישירה'
+              }
             </p>
           </div>
 

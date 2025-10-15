@@ -300,18 +300,53 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
     try {
       console.log('🔄 Starting share process...');
       
-      // Determine what to share - edited image/video or original
+      // For burst mode, upload all images
+      if (mode === 'burst' && capturedImages.length > 1) {
+        const uploadPromises = capturedImages.map(async (imageData, index) => {
+          const response = await fetch(imageData);
+          const blob = await response.blob();
+          const fileName = `beer-buddy-burst-${Date.now()}-${index}.jpg`;
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('shared-media')
+            .upload(fileName, blob, {
+              contentType: blob.type,
+              cacheControl: '604800',
+            });
+
+          if (uploadError) throw uploadError;
+
+          const { data: urlData } = supabase.storage
+            .from('shared-media')
+            .getPublicUrl(fileName);
+
+          await supabase
+            .from('shared_media')
+            .insert({
+              file_path: fileName,
+              media_type: 'photo',
+            });
+
+          return urlData.publicUrl;
+        });
+
+        const urls = await Promise.all(uploadPromises);
+        setShareFileUrl(urls.join(','));
+        setShowShareDialog(true);
+        toast.success(`${capturedImages.length} תמונות הועלו!`);
+        return;
+      }
+
+      // Single image/video flow
       const fileToShare = editedImage || capturedImages[0];
       if (!fileToShare) {
         toast.error('אין תוכן לשיתוף');
         return;
       }
 
-      // Convert data URL to blob
       const response = await fetch(fileToShare);
       const blob = await response.blob();
       
-      // Determine file extension and media type
       const isVideo = mode === 'video' || mode === 'gif';
       const fileExtension = isVideo ? (mode === 'video' ? 'mp4' : 'webm') : 'jpg';
       const mediaType = mode === 'gif' ? 'gif' : isVideo ? 'video' : 'photo';
@@ -319,34 +354,27 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
       
       console.log('📤 Uploading to storage:', fileName);
       
-      // Upload to Supabase storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('shared-media')
         .upload(fileName, blob, {
           contentType: blob.type,
-          cacheControl: '604800', // 7 days
+          cacheControl: '604800',
         });
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
       const { data: urlData } = supabase.storage
         .from('shared-media')
         .getPublicUrl(fileName);
 
       console.log('✅ File uploaded successfully:', urlData.publicUrl);
 
-      // Save to database
-      const { error: dbError } = await supabase
+      await supabase
         .from('shared_media')
         .insert({
           file_path: fileName,
           media_type: mediaType,
         });
-
-      if (dbError) {
-        console.warn('⚠️ Database insert failed:', dbError);
-      }
 
       setShareFileUrl(urlData.publicUrl);
       setShowShareDialog(true);
