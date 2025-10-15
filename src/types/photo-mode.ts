@@ -1,4 +1,4 @@
-export type PhotoMode = 'single' | 'burst' | 'gif' | 'boomerang' | 'video';
+export type PhotoMode = 'single' | 'burst' | 'gif' | 'video';
 
 export interface PhotoModeConfig {
   mode: PhotoMode;
@@ -26,14 +26,8 @@ export const PHOTO_MODES: PhotoModeConfig[] = [
   {
     mode: 'gif',
     label: 'GIF',
-    description: 'צור GIF מונפש',
+    description: 'וידאו קצר בלופ',
     icon: '🎬'
-  },
-  {
-    mode: 'boomerang',
-    label: 'בומרנג',
-    description: 'וידאו בלופ',
-    icon: '🔄'
   },
   {
     mode: 'video',

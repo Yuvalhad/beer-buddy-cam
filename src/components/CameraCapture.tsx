@@ -11,7 +11,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PhotoMode } from "@/types/photo-mode";
-import { createGIF, createBoomerang } from "@/utils/gifCreator";
 
 interface CameraCaptureProps {
   mode: PhotoMode;
@@ -104,7 +103,7 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack }: CameraCapturePro
       ctx.drawImage(video, 0, 0);
       const imageData = canvas.toDataURL('image/jpeg');
       
-      if (mode === 'burst' || mode === 'gif') {
+      if (mode === 'burst') {
         setCapturedImages(prev => [...prev, imageData]);
         setCurrentPhotoIndex(prev => prev + 1);
         
@@ -138,23 +137,18 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack }: CameraCapturePro
         type: 'video/webm'
       });
       
-      if (mode === 'boomerang') {
-        const boomerangBlob = await createBoomerang(blob);
-        const url = URL.createObjectURL(boomerangBlob);
-        setCapturedImages([url]);
-      } else {
-        const url = URL.createObjectURL(blob);
-        setCapturedImages([url]);
-      }
-      
+      const url = URL.createObjectURL(blob);
+      setCapturedImages([url]);
       setIsRecording(false);
+      toast.success('הוידאו נוצר! 🎬');
     };
 
     mediaRecorderRef.current = mediaRecorder;
     mediaRecorder.start();
     setIsRecording(true);
 
-    if (mode === 'boomerang') {
+    // Stop recording after 3 seconds for GIF mode
+    if (mode === 'gif') {
       setTimeout(() => {
         mediaRecorder.stop();
       }, 3000);
@@ -172,12 +166,7 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack }: CameraCapturePro
     
     setIsProcessing(true);
     try {
-      if (mode === 'gif') {
-        const gifBlob = await createGIF(capturedImages);
-        const gifUrl = URL.createObjectURL(gifBlob);
-        setEditedImage(gifUrl);
-        toast.success('GIF נוצר!');
-      } else if (mode === 'video') {
+      if (mode === 'video') {
         const { data, error } = await supabase.functions.invoke('create-ai-video', {
           body: { imageData: capturedImages[0] }
         });
@@ -219,8 +208,7 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack }: CameraCapturePro
     switch (mode) {
       case 'single': return '🍺 Beer Selfie';
       case 'burst': return '📸 סדרת תמונות';
-      case 'gif': return '🎬 GIF עם בירה';
-      case 'boomerang': return '🔄 בומרנג';
+      case 'gif': return '🎬 GIF';
       case 'video': return '✨ סרטון קסם';
       default: return 'Beer Buddy';
     }
@@ -230,8 +218,7 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack }: CameraCapturePro
     switch (mode) {
       case 'single': return 'צלם תמונה ואנחנו נוסיף לך בירה!';
       case 'burst': return `צלם ${photoCount} תמונות ברצף`;
-      case 'gif': return 'צור GIF מונפש עם בירה';
-      case 'boomerang': return 'צור סרטון בלופ';
+      case 'gif': return 'הקלט וידאו קצר בלופ (3 שניות)';
       case 'video': return 'צור סרטון קסם עם AI';
       default: return '';
     }
@@ -296,22 +283,22 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack }: CameraCapturePro
             />
             <canvas ref={canvasRef} className="hidden" />
             
-            {(mode === 'boomerang') && !isRecording && (
+            {mode === 'gif' && !isRecording && (
               <Button
                 onClick={startRecording}
                 size="lg"
                 className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary hover:bg-primary/90"
               >
                 <Camera className="mr-2" />
-                התחל הקלטה
+                התחל הקלטה (3 שניות)
               </Button>
             )}
-            {(mode === 'boomerang') && isRecording && (
+            {mode === 'gif' && isRecording && (
               <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-6 py-3 rounded-full font-semibold animate-pulse">
                 מקליט...
               </div>
             )}
-            {(mode === 'single' || mode === 'burst' || mode === 'gif') && (
+            {(mode === 'single' || mode === 'burst') && (
               <Button
                 onClick={capturePhoto}
                 size="lg"
@@ -325,6 +312,28 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack }: CameraCapturePro
                 }
               </Button>
             )}
+          </div>
+        ) : mode === 'gif' ? (
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold mb-2">הוידאו שלך 🎬</h3>
+              <video
+                src={capturedImages[0]}
+                controls
+                loop
+                autoPlay
+                className="w-full rounded-lg shadow-lg"
+              />
+            </div>
+            <div className="flex gap-4 justify-center">
+              <Button
+                onClick={reset}
+                variant="outline"
+                size="lg"
+              >
+                נסה שוב
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
@@ -386,12 +395,9 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack }: CameraCapturePro
                   {editedImage && (
                     <div>
                       <h3 className="text-lg font-semibold mb-2">
-                        {mode === 'gif' ? 'ה-GIF שלך 🎬' : 
-                         mode === 'video' ? 'הסרטון שלך ✨' :
-                         mode === 'boomerang' ? 'הבומרנג שלך 🔄' :
-                         'עם בירה 🍺'}
+                        {mode === 'video' ? 'הסרטון שלך ✨' : 'עם בירה 🍺'}
                       </h3>
-                      {mode === 'video' || mode === 'boomerang' ? (
+                      {mode === 'video' ? (
                         <video
                           src={editedImage}
                           controls
@@ -418,9 +424,7 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack }: CameraCapturePro
                       className="bg-primary hover:bg-primary/90"
                     >
                       {isProcessing ? "מעבד..." : 
-                       mode === 'gif' ? "צור GIF 🎬" :
                        mode === 'video' ? "צור סרטון קסם ✨" :
-                       mode === 'boomerang' ? "עבד בומרנג 🔄" :
                        "הוסף בירה 🍺"}
                     </Button>
                   )}
