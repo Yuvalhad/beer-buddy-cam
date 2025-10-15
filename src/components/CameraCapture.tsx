@@ -523,7 +523,7 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
                 onClick={handleCapture}
                 size="lg"
                 className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-2xl px-12 py-8 h-auto font-bold shadow-glow animate-pulse"
-                disabled={mode === 'burst' && capturedImages.length >= photoCount}
+                disabled={capturedImages.length >= photoCount}
               >
                 <Camera className="mr-3 w-8 h-8" />
                 {capturedImages.length > 0 

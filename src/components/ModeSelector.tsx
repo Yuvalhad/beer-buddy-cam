@@ -9,7 +9,7 @@ interface ModeSelectorProps {
 }
 
 export const ModeSelector = ({ onSelectMode }: ModeSelectorProps) => {
-  const [burstCount, setBurstCount] = useState<number>(3);
+  const [burstCount, setBurstCount] = useState<number>(2);
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-6xl mx-auto">
@@ -49,7 +49,6 @@ export const ModeSelector = ({ onSelectMode }: ModeSelectorProps) => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1">תמונה 1</SelectItem>
                         <SelectItem value="2">2 תמונות</SelectItem>
                         <SelectItem value="3">3 תמונות</SelectItem>
                         <SelectItem value="4">4 תמונות</SelectItem>
