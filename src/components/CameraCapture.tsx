@@ -24,16 +24,20 @@ export const CameraCapture = () => {
 
   const startCamera = async () => {
     try {
+      console.log('Requesting camera access...');
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: 1280, height: 720 }
+        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
       });
+      console.log('Camera access granted', mediaStream);
       setStream(mediaStream);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        await videoRef.current.play();
+        console.log('Video playing');
       }
     } catch (error) {
       console.error('Error accessing camera:', error);
-      toast.error('לא ניתן לגשת למצלמה');
+      toast.error('לא ניתן לגשת למצלמה. אנא אפשר גישה למצלמה בהגדרות הדפדפן.');
     }
   };
 
@@ -100,12 +104,13 @@ export const CameraCapture = () => {
 
         <div className="space-y-6">
           {!capturedImage ? (
-            <div className="relative">
+            <div className="relative bg-muted rounded-2xl overflow-hidden min-h-[400px] flex items-center justify-center">
               <video
                 ref={videoRef}
                 autoPlay
                 playsInline
-                className="w-full rounded-2xl shadow-lg"
+                muted
+                className="w-full h-full object-cover rounded-2xl shadow-lg"
               />
               <canvas ref={canvasRef} className="hidden" />
               
