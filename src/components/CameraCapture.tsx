@@ -138,13 +138,20 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
       const imageData = canvas.toDataURL('image/jpeg');
       
       if (mode === 'burst') {
-        setCapturedImages(prev => [...prev, imageData]);
+        const newImages = [...capturedImages, imageData];
+        setCapturedImages(newImages);
         setCurrentPhotoIndex(prev => prev + 1);
         
-        if (capturedImages.length + 1 >= photoCount) {
+        console.log(`📸 Burst photo ${newImages.length}/${photoCount} captured`);
+        
+        if (newImages.length >= photoCount) {
           toast.success(`כל התמונות נצלמו! (${photoCount})`);
         } else {
-          toast.info(`תמונה ${capturedImages.length + 1}/${photoCount}`);
+          toast.info(`תמונה ${newImages.length}/${photoCount} - לחץ לצילום הבא`);
+          // Make sure video continues playing
+          if (videoRef.current && videoRef.current.paused) {
+            videoRef.current.play();
+          }
         }
       } else {
         setCapturedImages([imageData]);
