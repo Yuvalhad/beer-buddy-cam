@@ -1,9 +1,16 @@
 import { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Camera, RotateCcw, Sparkles } from "lucide-react";
+import { Camera, RotateCcw, Sparkles, Video } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const CameraCapture = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -135,19 +142,24 @@ export const CameraCapture = () => {
         </div>
 
         <div className="space-y-6">
-          {!capturedImage && cameras.length > 1 && (
-            <div className="flex justify-center">
-              <select
-                value={selectedCamera}
-                onChange={(e) => setSelectedCamera(e.target.value)}
-                className="bg-card border-2 border-primary/20 rounded-lg px-4 py-2 text-foreground focus:outline-none focus:border-primary z-10"
-              >
-                {cameras.map((camera, index) => (
-                  <option key={camera.deviceId} value={camera.deviceId}>
-                    {camera.label || `מצלמה ${index + 1}`}
-                  </option>
-                ))}
-              </select>
+          {!capturedImage && cameras.length > 0 && (
+            <div className="flex flex-col items-center gap-2">
+              <label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Video className="w-4 h-4" />
+                בחר מצלמה
+              </label>
+              <Select value={selectedCamera} onValueChange={setSelectedCamera}>
+                <SelectTrigger className="w-[280px] bg-card border-2 border-primary/20 hover:border-primary/40 transition-colors">
+                  <SelectValue placeholder="בחר מצלמה" />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-2 border-primary/20 z-50">
+                  {cameras.map((camera, index) => (
+                    <SelectItem key={camera.deviceId} value={camera.deviceId}>
+                      {camera.label || `מצלמה ${index + 1}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
           
