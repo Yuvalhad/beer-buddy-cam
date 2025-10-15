@@ -11,34 +11,41 @@ interface ModeSelectorProps {
 export const ModeSelector = ({ onSelectMode }: ModeSelectorProps) => {
   const [burstCount, setBurstCount] = useState<number>(3);
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 p-6">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold text-center mb-2 text-primary">
-          🍺 Beer Buddy Cam
+    <div className="min-h-screen bg-background p-6">
+      <div className="max-w-6xl mx-auto">
+        <h1 className="text-5xl font-bold text-center mb-4 text-foreground">
+          בחר את סוג הצילום
         </h1>
-        <p className="text-center text-muted-foreground mb-8">
-          בחר את מצב הצילום שלך
+        <p className="text-center text-muted-foreground mb-12 text-xl">
+          מה אתם רוצים ליצור?
         </p>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {PHOTO_MODES.map((config) => (
             <Card 
               key={config.mode}
-              className="hover:shadow-lg transition-shadow"
+              className="hover:scale-105 transition-all duration-300 hover:shadow-glow border-2 border-border bg-card cursor-pointer group"
+              onClick={() => {
+                if (config.mode === 'burst') {
+                  onSelectMode(config.mode, burstCount);
+                } else {
+                  onSelectMode(config.mode);
+                }
+              }}
             >
-              <CardContent className="p-6 text-center">
-                <div className="text-6xl mb-4">{config.icon}</div>
-                <h3 className="text-xl font-semibold mb-2">{config.label}</h3>
-                <p className="text-sm text-muted-foreground mb-4">{config.description}</p>
+              <CardContent className="p-10 text-center space-y-6">
+                <div className="text-9xl group-hover:scale-110 transition-transform">{config.icon}</div>
+                <h3 className="text-3xl font-bold text-foreground">{config.label}</h3>
+                <p className="text-lg text-muted-foreground min-h-[3rem]">{config.description}</p>
                 
                 {config.mode === 'burst' && (
-                  <div className="mb-4">
-                    <label className="text-sm font-medium mb-2 block">כמה תמונות?</label>
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <label className="text-base font-medium mb-3 block text-foreground">כמה תמונות?</label>
                     <Select 
                       value={burstCount.toString()} 
                       onValueChange={(value) => setBurstCount(parseInt(value))}
                     >
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger className="w-full text-lg h-12">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -52,8 +59,10 @@ export const ModeSelector = ({ onSelectMode }: ModeSelectorProps) => {
                 )}
                 
                 <Button 
-                  className="w-full"
-                  onClick={() => {
+                  size="lg"
+                  className="w-full text-xl py-6 font-bold"
+                  onClick={(e) => {
+                    e.stopPropagation();
                     if (config.mode === 'burst') {
                       onSelectMode(config.mode, burstCount);
                     } else {
@@ -61,7 +70,7 @@ export const ModeSelector = ({ onSelectMode }: ModeSelectorProps) => {
                     }
                   }}
                 >
-                  בחר
+                  בחר ✨
                 </Button>
               </CardContent>
             </Card>

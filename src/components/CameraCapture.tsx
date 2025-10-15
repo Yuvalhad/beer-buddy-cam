@@ -11,14 +11,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PhotoMode } from "@/types/photo-mode";
+import { Countdown } from "./Countdown";
+import { CameraFlash } from "./CameraFlash";
 
 interface CameraCaptureProps {
   mode: PhotoMode;
   photoCount?: number;
   onBack: () => void;
+  onReset?: () => void;
 }
 
-export const CameraCapture = ({ mode, photoCount = 1, onBack }: CameraCaptureProps) => {
+export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraCaptureProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -31,6 +34,8 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack }: CameraCapturePro
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
+  const [showCountdown, setShowCountdown] = useState(false);
+  const [showFlash, setShowFlash] = useState(false);
 
   useEffect(() => {
     getCameras();
@@ -89,6 +94,20 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack }: CameraCapturePro
     }
   };
 
+  const handleCapture = () => {
+    setShowCountdown(true);
+  };
+
+  const onCountdownComplete = () => {
+    setShowCountdown(false);
+    setShowFlash(true);
+  };
+
+  const onFlashComplete = () => {
+    setShowFlash(false);
+    capturePhoto();
+  };
+
   const capturePhoto = () => {
     if (!videoRef.current || !canvasRef.current) return;
 
@@ -118,7 +137,11 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack }: CameraCapturePro
     }
   };
 
-  const startRecording = () => {
+  const handleStartRecording = () => {
+    setShowCountdown(true);
+  };
+
+  const startRecordingAfterCountdown = () => {
     if (!stream) return;
 
     recordedChunksRef.current = [];
@@ -146,6 +169,7 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack }: CameraCapturePro
     mediaRecorderRef.current = mediaRecorder;
     mediaRecorder.start();
     setIsRecording(true);
+    setShowFlash(true);
 
     // Stop recording after 3 seconds for GIF mode
     if (mode === 'gif') {
@@ -224,20 +248,29 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack }: CameraCapturePro
     }
   };
 
+  useEffect(() => {
+    if (showCountdown === false && showFlash && mode === 'gif') {
+      startRecordingAfterCountdown();
+    }
+  }, [showCountdown, showFlash, mode]);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 p-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-2">
-          <Button variant="ghost" onClick={onBack}>
+    <div className="min-h-screen bg-background p-4">
+      {showCountdown && <Countdown onComplete={onCountdownComplete} />}
+      {showFlash && <CameraFlash show={showFlash} onComplete={onFlashComplete} />}
+      
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <Button variant="ghost" onClick={onBack} size="lg" className="text-lg">
             <ArrowRight className="ml-2" />
             חזור
           </Button>
-          <h1 className="text-4xl font-bold text-center text-primary flex-1">
+          <h1 className="text-5xl font-bold text-center text-foreground flex-1">
             {getModeTitle()}
           </h1>
           <div className="w-24" />
         </div>
-        <p className="text-center text-muted-foreground mb-6">
+        <p className="text-center text-muted-foreground mb-8 text-xl">
           {getModeDescription()}
         </p>
 
@@ -285,53 +318,62 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack }: CameraCapturePro
             
             {mode === 'gif' && !isRecording && (
               <Button
-                onClick={startRecording}
+                onClick={handleStartRecording}
                 size="lg"
-                className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary hover:bg-primary/90"
+                className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-2xl px-12 py-8 h-auto font-bold shadow-glow"
               >
-                <Camera className="mr-2" />
-                התחל הקלטה (3 שניות)
+                <Camera className="mr-3 w-8 h-8" />
+                התחל הקלטה! 🎬
               </Button>
             )}
             {mode === 'gif' && isRecording && (
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-6 py-3 rounded-full font-semibold animate-pulse">
-                מקליט...
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-destructive text-destructive-foreground px-8 py-4 rounded-2xl text-2xl font-bold animate-pulse shadow-glow">
+                מקליט... ⏺️
               </div>
             )}
             {(mode === 'single' || mode === 'burst') && (
               <Button
-                onClick={capturePhoto}
+                onClick={handleCapture}
                 size="lg"
-                className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary hover:bg-primary/90"
+                className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-2xl px-12 py-8 h-auto font-bold shadow-glow animate-pulse"
                 disabled={mode === 'burst' && capturedImages.length >= photoCount}
               >
-                <Camera className="mr-2" />
+                <Camera className="mr-3 w-8 h-8" />
                 {mode === 'burst' && capturedImages.length > 0 
-                  ? `צלם תמונה ${capturedImages.length + 1}/${photoCount}`
-                  : 'צלם תמונה'
+                  ? `צלם ${capturedImages.length + 1}/${photoCount} 📸`
+                  : 'צלם עכשיו! 📸'
                 }
               </Button>
             )}
           </div>
         ) : mode === 'gif' ? (
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-lg font-semibold mb-2">הוידאו שלך 🎬</h3>
+          <div className="space-y-8">
+            <div className="text-center">
+              <h3 className="text-3xl font-bold mb-6 text-primary">🎬 הוידאו שלך מוכן! 🎬</h3>
               <video
                 src={capturedImages[0]}
                 controls
                 loop
                 autoPlay
-                className="w-full rounded-lg shadow-lg"
+                className="w-full rounded-2xl shadow-glow border-2 border-primary/30 max-w-2xl mx-auto"
               />
             </div>
-            <div className="flex gap-4 justify-center">
+            <div className="flex gap-6 justify-center flex-wrap">
+              <Button
+                onClick={onReset || reset}
+                size="lg"
+                className="text-2xl px-12 py-8 h-auto font-bold bg-primary hover:bg-primary/90 shadow-glow"
+              >
+                מצוין, נשתף! 🎉
+              </Button>
+              
               <Button
                 onClick={reset}
-                variant="outline"
+                variant="secondary"
                 size="lg"
+                className="text-2xl px-12 py-8 h-auto font-bold"
               >
-                נסה שוב
+                ננסה שוב 🔄
               </Button>
             </div>
           </div>
@@ -346,12 +388,12 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack }: CameraCapturePro
                   className="w-full rounded-lg shadow-lg"
                 />
                 <Button
-                  onClick={capturePhoto}
+                  onClick={handleCapture}
                   size="lg"
-                  className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-primary hover:bg-primary/90"
+                  className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-2xl px-12 py-8 h-auto font-bold shadow-glow animate-pulse"
                 >
-                  <Camera className="mr-2" />
-                  צלם תמונה {capturedImages.length + 1}/{photoCount}
+                  <Camera className="mr-3 w-8 h-8" />
+                  צלם {capturedImages.length + 1}/{photoCount} 📸
                 </Button>
                 <div className="absolute top-4 left-4 flex gap-2">
                   {capturedImages.map((img, idx) => (
@@ -359,82 +401,87 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack }: CameraCapturePro
                       key={idx}
                       src={img}
                       alt={`Captured ${idx + 1}`}
-                      className="w-20 h-20 object-cover rounded-lg border-2 border-white shadow-lg"
+                      className="w-20 h-20 object-cover rounded-lg border-2 border-primary shadow-lg"
                     />
                   ))}
                 </div>
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-6">
                   {capturedImages.length === 1 ? (
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2">התמונה המקורית</h3>
-                      <img
-                        src={capturedImages[0]}
-                        alt="Captured"
-                        className="w-full rounded-lg shadow-lg"
-                      />
-                    </div>
+                    <img
+                      src={capturedImages[0]}
+                      alt="Captured"
+                      className="w-full rounded-2xl shadow-glow border-2 border-primary/30 max-w-2xl mx-auto"
+                    />
                   ) : (
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2">התמונות שלך</h3>
-                      <div className="grid grid-cols-2 gap-2">
-                        {capturedImages.map((img, idx) => (
-                          <img
-                            key={idx}
-                            src={img}
-                            alt={`Captured ${idx + 1}`}
-                            className="w-full rounded-lg shadow-lg"
-                          />
-                        ))}
-                      </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      {capturedImages.map((img, idx) => (
+                        <img
+                          key={idx}
+                          src={img}
+                          alt={`Captured ${idx + 1}`}
+                          className="w-full rounded-2xl shadow-glow border-2 border-primary/30"
+                        />
+                      ))}
                     </div>
                   )}
                   
                   {editedImage && (
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2">
-                        {mode === 'video' ? 'הסרטון שלך ✨' : 'עם בירה 🍺'}
+                    <div className="text-center">
+                      <h3 className="text-3xl font-bold mb-4 text-primary">
+                        {mode === 'video' ? '✨ הסרטון שלך מוכן! ✨' : '🍺 עם בירה מושלמת! 🍺'}
                       </h3>
                       {mode === 'video' ? (
                         <video
                           src={editedImage}
                           controls
                           loop
-                          className="w-full rounded-lg shadow-lg"
+                          className="w-full rounded-2xl shadow-glow border-2 border-accent max-w-2xl mx-auto"
                         />
                       ) : (
                         <img
                           src={editedImage}
                           alt="Edited"
-                          className="w-full rounded-lg shadow-lg"
+                          className="w-full rounded-2xl shadow-glow border-2 border-accent max-w-2xl mx-auto"
                         />
                       )}
                     </div>
                   )}
                 </div>
 
-                <div className="flex gap-4 justify-center">
+                <div className="flex gap-6 justify-center flex-wrap mt-8">
                   {!editedImage && (
                     <Button
                       onClick={processImages}
                       disabled={isProcessing}
                       size="lg"
-                      className="bg-primary hover:bg-primary/90"
+                      className="text-2xl px-12 py-8 h-auto font-bold shadow-glow"
                     >
-                      {isProcessing ? "מעבד..." : 
+                      {isProcessing ? "מעבד... ⏳" : 
                        mode === 'video' ? "צור סרטון קסם ✨" :
                        "הוסף בירה 🍺"}
                     </Button>
                   )}
                   
+                  {editedImage && (
+                    <Button
+                      onClick={onReset || reset}
+                      size="lg"
+                      className="text-2xl px-12 py-8 h-auto font-bold bg-primary hover:bg-primary/90 shadow-glow"
+                    >
+                      מצוין, נשתף! 🎉
+                    </Button>
+                  )}
+                  
                   <Button
                     onClick={reset}
-                    variant="outline"
+                    variant="secondary"
                     size="lg"
+                    className="text-2xl px-12 py-8 h-auto font-bold"
                   >
-                    נסה שוב
+                    ננסה שוב 🔄
                   </Button>
                 </div>
               </>
