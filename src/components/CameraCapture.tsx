@@ -12,9 +12,11 @@ export const CameraCapture = () => {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [editedImage, setEditedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
+  const [selectedCamera, setSelectedCamera] = useState<string>('');
 
   useEffect(() => {
-    startCamera();
+    getCameras();
     return () => {
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
@@ -22,12 +24,42 @@ export const CameraCapture = () => {
     };
   }, []);
 
-  const startCamera = async () => {
+  useEffect(() => {
+    if (selectedCamera) {
+      startCamera(selectedCamera);
+    }
+  }, [selectedCamera]);
+
+  const getCameras = async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(device => device.kind === 'videoinput');
+      setCameras(videoDevices);
+      if (videoDevices.length > 0) {
+        setSelectedCamera(videoDevices[0].deviceId);
+      }
+    } catch (error) {
+      console.error('Error getting cameras:', error);
+      toast.error('לא ניתן לקבל רשימת מצלמות');
+    }
+  };
+
+  const startCamera = async (deviceId?: string) => {
     try {
       console.log('Requesting camera access...');
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
-      });
+      
+      // Stop existing stream if any
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+      
+      const constraints: MediaStreamConstraints = {
+        video: deviceId 
+          ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+          : { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
+      };
+      
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       console.log('Camera access granted', mediaStream);
       setStream(mediaStream);
       if (videoRef.current) {
@@ -89,7 +121,7 @@ export const CameraCapture = () => {
   const reset = () => {
     setCapturedImage(null);
     setEditedImage(null);
-    startCamera();
+    startCamera(selectedCamera);
   };
 
   return (
@@ -103,6 +135,22 @@ export const CameraCapture = () => {
         </div>
 
         <div className="space-y-6">
+          {!capturedImage && cameras.length > 1 && (
+            <div className="flex justify-center">
+              <select
+                value={selectedCamera}
+                onChange={(e) => setSelectedCamera(e.target.value)}
+                className="bg-card border-2 border-primary/20 rounded-lg px-4 py-2 text-foreground focus:outline-none focus:border-primary z-10"
+              >
+                {cameras.map((camera, index) => (
+                  <option key={camera.deviceId} value={camera.deviceId}>
+                    {camera.label || `מצלמה ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          
           {!capturedImage ? (
             <div className="relative bg-muted rounded-2xl overflow-hidden min-h-[400px] flex items-center justify-center">
               <video
