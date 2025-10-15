@@ -493,7 +493,7 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
           </div>
         )}
 
-        {capturedImages.length === 0 ? (
+        {(capturedImages.length === 0 || (capturedImages.length < photoCount && mode !== 'burst')) ? (
           <div className="relative">
             <video
               ref={videoRef}
@@ -526,11 +526,23 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
                 disabled={mode === 'burst' && capturedImages.length >= photoCount}
               >
                 <Camera className="mr-3 w-8 h-8" />
-                {mode === 'burst' && capturedImages.length > 0 
+                {capturedImages.length > 0 
                   ? `צלם ${capturedImages.length + 1}/${photoCount} 📸`
                   : 'צלם עכשיו! 📸'
                 }
               </Button>
+            )}
+            {capturedImages.length > 0 && (
+              <div className="absolute top-4 left-4 flex gap-2">
+                {capturedImages.map((img, idx) => (
+                  <img
+                    key={idx}
+                    src={img}
+                    alt={`Captured ${idx + 1}`}
+                    className="w-20 h-20 object-cover rounded-lg border-2 border-primary shadow-lg"
+                  />
+                ))}
+              </div>
             )}
           </div>
         ) : mode === 'gif' ? (
