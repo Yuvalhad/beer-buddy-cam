@@ -55,6 +55,18 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
   const getCameras = async () => {
     try {
       console.log('🎥 Searching for cameras...');
+      
+      // First, request camera access to get permissions
+      // This is required for enumerateDevices to return full device info
+      try {
+        const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        console.log('✅ Camera permission granted');
+        // Stop the temporary stream immediately
+        tempStream.getTracks().forEach(track => track.stop());
+      } catch (permError) {
+        console.warn('⚠️ Camera permission not granted yet:', permError);
+      }
+      
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = devices.filter(device => device.kind === 'videoinput');
       
@@ -69,6 +81,7 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
         console.log('✅ Default camera selected:', videoDevices[0].label || 'Camera 1');
       } else {
         console.warn('⚠️ No cameras found on this device');
+        toast.error('לא נמצאו מצלמות במכשיר');
       }
     } catch (error) {
       console.error('❌ Error getting cameras:', error);
