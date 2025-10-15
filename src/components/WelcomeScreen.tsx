@@ -6,9 +6,8 @@ interface WelcomeScreenProps {
 
 export const WelcomeScreen = ({ onStart }: WelcomeScreenProps) => {
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {/* Animated background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-accent/10 animate-pulse" />
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden">
+      {/* Animated background gradient - now using body gradient */}
       
       {/* Content */}
       <div className="relative z-10 text-center space-y-8 max-w-2xl">
