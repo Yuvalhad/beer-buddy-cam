@@ -68,29 +68,44 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
 
   const startCamera = async (deviceId?: string) => {
     try {
-      console.log('Requesting camera access...');
+      console.log('🎥 Requesting camera access...', deviceId);
       
       if (stream) {
+        console.log('🔴 Stopping existing stream');
         stream.getTracks().forEach(track => track.stop());
       }
       
       const constraints: MediaStreamConstraints = {
         video: deviceId 
           ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
-          : { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
+          : { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
       };
       
+      console.log('📋 Camera constraints:', constraints);
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      console.log('Camera access granted', mediaStream);
+      console.log('✅ Camera access granted!', mediaStream);
+      
       setStream(mediaStream);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
         await videoRef.current.play();
-        console.log('Video playing');
+        console.log('▶️ Video playing');
       }
-    } catch (error) {
-      console.error('Error accessing camera:', error);
-      toast.error('לא ניתן לגשת למצלמה');
+    } catch (error: any) {
+      console.error('❌ Error accessing camera:', error);
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      
+      if (error.name === 'NotAllowedError') {
+        toast.error('נא לאפשר גישה למצלמה בהגדרות הדפדפן');
+      } else if (error.name === 'NotFoundError') {
+        toast.error('לא נמצאה מצלמה במכשיר');
+      } else if (error.name === 'NotReadableError') {
+        toast.error('המצלמה בשימוש באפליקציה אחרת');
+      } else {
+        toast.error('לא ניתן לגשת למצלמה: ' + error.message);
+      }
     }
   };
 
