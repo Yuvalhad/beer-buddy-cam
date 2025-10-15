@@ -13,6 +13,7 @@ import {
 import { PhotoMode } from "@/types/photo-mode";
 import { Countdown } from "./Countdown";
 import { CameraFlash } from "./CameraFlash";
+import { ShareDialog } from "./ShareDialog";
 
 interface CameraCaptureProps {
   mode: PhotoMode;
@@ -36,6 +37,8 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
   const recordedChunksRef = useRef<Blob[]>([]);
   const [showCountdown, setShowCountdown] = useState(false);
   const [showFlash, setShowFlash] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [shareFileUrl, setShareFileUrl] = useState<string>("");
 
   useEffect(() => {
     getCameras();
@@ -288,7 +291,70 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
     setCapturedImages([]);
     setEditedImage(null);
     setCurrentPhotoIndex(0);
+    setShowShareDialog(false);
+    setShareFileUrl("");
     startCamera(selectedCamera);
+  };
+
+  const handleShare = async () => {
+    try {
+      console.log('🔄 Starting share process...');
+      
+      // Determine what to share - edited image/video or original
+      const fileToShare = editedImage || capturedImages[0];
+      if (!fileToShare) {
+        toast.error('אין תוכן לשיתוף');
+        return;
+      }
+
+      // Convert data URL to blob
+      const response = await fetch(fileToShare);
+      const blob = await response.blob();
+      
+      // Determine file extension and media type
+      const isVideo = mode === 'video' || mode === 'gif';
+      const fileExtension = isVideo ? (mode === 'video' ? 'mp4' : 'webm') : 'jpg';
+      const mediaType = mode === 'gif' ? 'gif' : isVideo ? 'video' : 'photo';
+      const fileName = `beer-buddy-${mediaType}-${Date.now()}.${fileExtension}`;
+      
+      console.log('📤 Uploading to storage:', fileName);
+      
+      // Upload to Supabase storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('shared-media')
+        .upload(fileName, blob, {
+          contentType: blob.type,
+          cacheControl: '604800', // 7 days
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('shared-media')
+        .getPublicUrl(fileName);
+
+      console.log('✅ File uploaded successfully:', urlData.publicUrl);
+
+      // Save to database
+      const { error: dbError } = await supabase
+        .from('shared_media')
+        .insert({
+          file_path: fileName,
+          media_type: mediaType,
+        });
+
+      if (dbError) {
+        console.warn('⚠️ Database insert failed:', dbError);
+      }
+
+      setShareFileUrl(urlData.publicUrl);
+      setShowShareDialog(true);
+      
+    } catch (error) {
+      console.error('❌ Error sharing:', error);
+      toast.error('שגיאה בשיתוף. נסה שוב.');
+    }
   };
 
   const getModeTitle = () => {
@@ -442,7 +508,7 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
             </div>
             <div className="flex gap-6 justify-center flex-wrap">
               <Button
-                onClick={onReset || reset}
+                onClick={handleShare}
                 size="lg"
                 className="text-2xl px-12 py-8 h-auto font-bold bg-primary hover:bg-primary/90 shadow-glow"
               >
@@ -549,7 +615,7 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
                   
                   {editedImage && (
                     <Button
-                      onClick={onReset || reset}
+                      onClick={handleShare}
                       size="lg"
                       className="text-2xl px-12 py-8 h-auto font-bold bg-primary hover:bg-primary/90 shadow-glow"
                     >
@@ -571,6 +637,16 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
           </div>
         )}
       </div>
+
+      <ShareDialog
+        open={showShareDialog}
+        onOpenChange={setShowShareDialog}
+        fileUrl={shareFileUrl}
+        mediaType={mode === 'gif' ? 'gif' : mode === 'video' ? 'video' : 'photo'}
+        onEmailSent={() => {
+          toast.success('תודה ששיתפת! 🎉');
+        }}
+      />
     </div>
   );
 };

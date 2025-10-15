@@ -2,3 +2,6 @@ project_id = "atvczpxrvhjfbsbjfumu"
 
 [functions.add-beer]
 verify_jwt = false
+
+[functions.send-media-email]
+verify_jwt = false
