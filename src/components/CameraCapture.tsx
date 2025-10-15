@@ -352,11 +352,13 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
                 <SelectValue placeholder="בחר מצלמה" />
               </SelectTrigger>
               <SelectContent className="bg-background border-border z-50">
-                {cameras.map((camera, index) => (
-                  <SelectItem key={camera.deviceId || index} value={camera.deviceId}>
-                    {camera.label || `מצלמה ${index + 1}`}
-                  </SelectItem>
-                ))}
+                {cameras
+                  .filter(camera => camera.deviceId && camera.deviceId.trim() !== '')
+                  .map((camera, index) => (
+                    <SelectItem key={camera.deviceId} value={camera.deviceId}>
+                      {camera.label || `מצלמה ${index + 1}`}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
