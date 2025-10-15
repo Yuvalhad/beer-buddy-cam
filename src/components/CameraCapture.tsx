@@ -198,7 +198,18 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
           }
         }
       } else {
-        setCapturedImages([imageData]);
+        // For multiple photos mode (not burst), add to the array instead of replacing
+        const newImages = [...capturedImages, imageData];
+        setCapturedImages(newImages);
+        setCurrentPhotoIndex(prev => prev + 1);
+        
+        console.log(`📸 Photo ${newImages.length}/${photoCount} captured`);
+        
+        if (newImages.length >= photoCount) {
+          toast.success(`כל התמונות נצלמו! (${photoCount})`);
+        } else {
+          toast.info(`תמונה ${newImages.length}/${photoCount} - לחץ לצילום הבא`);
+        }
       }
     }
   };
