@@ -15,7 +15,12 @@ const Index = () => {
 
   const handleSelectMode = (mode: PhotoMode, count?: number) => {
     setSelectedMode(mode);
-    if (count) setPhotoCount(count);
+    // Set photoCount based on mode
+    if (mode === 'single') {
+      setPhotoCount(1);
+    } else if (mode === 'burst' && count) {
+      setPhotoCount(count);
+    }
   };
 
   const handleBack = () => {
