@@ -7,7 +7,7 @@ import { PhotoMode } from "@/types/photo-mode";
 const Index = () => {
   const [showWelcome, setShowWelcome] = useState(true);
   const [selectedMode, setSelectedMode] = useState<PhotoMode | null>(null);
-  const [photoCount, setPhotoCount] = useState(3);
+  const [photoCount, setPhotoCount] = useState(1);
 
   const handleStart = () => {
     setShowWelcome(false);

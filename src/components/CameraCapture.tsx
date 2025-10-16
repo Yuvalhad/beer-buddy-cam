@@ -193,25 +193,17 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
         if (newImages.length >= photoCount) {
           toast.success(`כל התמונות נצלמו! (${photoCount})`);
         } else {
-          toast.info(`תמונה ${newImages.length}/${photoCount} - לחץ לצילום הבא`);
-          // Make sure video continues playing
-          if (videoRef.current && videoRef.current.paused) {
-            videoRef.current.play();
-          }
+          toast.info(`תמונה ${newImages.length}/${photoCount}`);
+          // Automatically capture next photo after 1.5 seconds
+          setTimeout(() => {
+            setShowFlash(true);
+          }, 1500);
         }
       } else {
-        // For multiple photos mode (not burst), add to the array instead of replacing
-        const newImages = [...capturedImages, imageData];
-        setCapturedImages(newImages);
-        setCurrentPhotoIndex(prev => prev + 1);
-        
-        console.log(`📸 Photo ${newImages.length}/${photoCount} captured`);
-        
-        if (newImages.length >= photoCount) {
-          toast.success(`כל התמונות נצלמו! (${photoCount})`);
-        } else {
-          toast.info(`תמונה ${newImages.length}/${photoCount} - לחץ לצילום הבא`);
-        }
+        // For single photo mode
+        setCapturedImages([imageData]);
+        setCurrentPhotoIndex(1);
+        toast.success('התמונה נצלמה!');
       }
     }
   };
@@ -594,14 +586,20 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
                   playsInline
                   className="w-full rounded-lg shadow-lg"
                 />
-                <Button
-                  onClick={handleCapture}
-                  size="lg"
-                  className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-2xl px-12 py-8 h-auto font-bold shadow-glow animate-pulse"
-                >
-                  <Camera className="mr-3 w-8 h-8" />
-                  צלם {capturedImages.length + 1}/{photoCount} 📸
-                </Button>
+                {capturedImages.length === 0 ? (
+                  <Button
+                    onClick={handleCapture}
+                    size="lg"
+                    className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-2xl px-12 py-8 h-auto font-bold shadow-glow animate-pulse"
+                  >
+                    <Camera className="mr-3 w-8 h-8" />
+                    צלם {photoCount} תמונות 📸
+                  </Button>
+                ) : (
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-2xl px-8 py-6 bg-background/90 rounded-lg border-2 border-primary font-bold">
+                    מצלם אוטומטית... {capturedImages.length}/{photoCount} ⏳
+                  </div>
+                )}
                 <div className="absolute top-4 left-4 flex gap-2">
                   {capturedImages.map((img, idx) => (
                     <img

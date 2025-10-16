@@ -28,6 +28,8 @@ export const ModeSelector = ({ onSelectMode }: ModeSelectorProps) => {
               onClick={() => {
                 if (config.mode === 'burst') {
                   onSelectMode(config.mode, burstCount);
+                } else if (config.mode === 'single') {
+                  onSelectMode(config.mode, 1);
                 } else {
                   onSelectMode(config.mode);
                 }
@@ -64,6 +66,8 @@ export const ModeSelector = ({ onSelectMode }: ModeSelectorProps) => {
                     e.stopPropagation();
                     if (config.mode === 'burst') {
                       onSelectMode(config.mode, burstCount);
+                    } else if (config.mode === 'single') {
+                      onSelectMode(config.mode, 1);
                     } else {
                       onSelectMode(config.mode);
                     }
