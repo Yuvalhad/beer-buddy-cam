@@ -194,14 +194,14 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
           toast.success(`כל התמונות נצלמו! (${photoCount})`);
         } else {
           toast.info(`תמונה ${newImages.length}/${photoCount}`);
-          // Automatically capture next photo after 1.5 seconds
-          // Must reset showFlash to false first, then back to true to trigger useEffect
+          // Automatically capture next photo after 1.5 seconds with flash
           setTimeout(() => {
-            setShowFlash(false);
-            // Small delay to ensure state change is registered
+            setShowFlash(true);
+            // Flash and capture
             setTimeout(() => {
-              setShowFlash(true);
-            }, 100);
+              setShowFlash(false);
+              capturePhoto();
+            }, 200);
           }, 1500);
         }
       } else {
