@@ -165,8 +165,8 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
   };
 
   const onFlashComplete = () => {
-    capturePhoto();
     setShowFlash(false);
+    capturePhoto();
   };
 
   const capturePhoto = () => {
@@ -195,7 +195,9 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
         } else {
           toast.info(`תמונה ${newImages.length}/${photoCount}`);
           // Automatically capture next photo after 1.5 seconds
+          // Need to ensure flash state toggles to trigger the effect
           setTimeout(() => {
+            setShowCountdown(false);
             setShowFlash(true);
           }, 1500);
         }
