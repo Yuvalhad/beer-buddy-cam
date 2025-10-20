@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import { Upload, Palette, Image as ImageIcon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,9 +38,29 @@ const SOLID_COLORS = [
 
 export const BackgroundChanger = ({ imageUrl, onBackgroundChanged }: BackgroundChangerProps) => {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [customBackground, setCustomBackground] = useState<string | null>(null);
+
+  // Simulate progress when processing
+  useEffect(() => {
+    if (isProcessing) {
+      setProgress(0);
+      const interval = setInterval(() => {
+        setProgress((prev) => {
+          if (prev >= 95) {
+            clearInterval(interval);
+            return 95;
+          }
+          return prev + 5;
+        });
+      }, 150);
+      return () => clearInterval(interval);
+    } else {
+      setProgress(0);
+    }
+  }, [isProcessing]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -66,8 +87,11 @@ export const BackgroundChanger = ({ imageUrl, onBackgroundChanged }: BackgroundC
       if (error) throw error;
 
       if (data.editedImageUrl) {
-        onBackgroundChanged(data.editedImageUrl);
-        toast.success('הרקע הוחלף בהצלחה! ✨');
+        setProgress(100);
+        setTimeout(() => {
+          onBackgroundChanged(data.editedImageUrl);
+          toast.success('הרקע הוחלף בהצלחה! ✨');
+        }, 300);
       }
     } catch (error: any) {
       console.error('Error changing background:', error);
@@ -196,9 +220,12 @@ export const BackgroundChanger = ({ imageUrl, onBackgroundChanged }: BackgroundC
       </Tabs>
 
       {isProcessing && (
-        <div className="flex items-center justify-center gap-2 text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>מחליף רקע...</span>
+        <div className="space-y-3">
+          <div className="flex items-center justify-center gap-2 text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>מחליף רקע עם Nano Banana AI... {progress}%</span>
+          </div>
+          <Progress value={progress} className="w-full" />
         </div>
       )}
     </Card>

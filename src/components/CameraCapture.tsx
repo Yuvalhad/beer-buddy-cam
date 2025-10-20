@@ -41,6 +41,7 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [shareFileUrl, setShareFileUrl] = useState<string>("");
   const [showBackgroundChanger, setShowBackgroundChanger] = useState(false);
+  const [editingImageIndex, setEditingImageIndex] = useState<number | null>(null);
 
   useEffect(() => {
     getCameras();
@@ -308,8 +309,24 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
   };
 
   const handleBackgroundChanged = (newImageUrl: string) => {
-    setEditedImage(newImageUrl);
-    setShowBackgroundChanger(false);
+    if (editingImageIndex !== null) {
+      // Update specific image in burst mode
+      const newImages = [...capturedImages];
+      newImages[editingImageIndex] = newImageUrl;
+      setCapturedImages(newImages);
+      setEditingImageIndex(null);
+      setShowBackgroundChanger(false);
+      toast.success('התמונה עודכנה! ✨');
+    } else {
+      // Single image mode
+      setEditedImage(newImageUrl);
+      setShowBackgroundChanger(false);
+    }
+  };
+
+  const handleEditBurstImage = (index: number) => {
+    setEditingImageIndex(index);
+    setShowBackgroundChanger(true);
   };
 
   const handleShare = async () => {
@@ -628,12 +645,24 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
                   ) : (
                     <div className="grid grid-cols-2 gap-4">
                       {capturedImages.map((img, idx) => (
-                        <img
-                          key={idx}
-                          src={img}
-                          alt={`Captured ${idx + 1}`}
-                          className="w-full rounded-2xl shadow-glow border-2 border-primary/30"
-                        />
+                        <div key={idx} className="relative group">
+                          <img
+                            src={img}
+                            alt={`Captured ${idx + 1}`}
+                            className="w-full rounded-2xl shadow-glow border-2 border-primary/30"
+                          />
+                          {mode === 'burst' && (
+                            <Button
+                              onClick={() => handleEditBurstImage(idx)}
+                              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                              size="sm"
+                              variant="secondary"
+                            >
+                              <Camera className="w-4 h-4 ml-1" />
+                              ערוך רקע
+                            </Button>
+                          )}
+                        </div>
                       ))}
                     </div>
                   )}
@@ -661,10 +690,17 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
                   )}
 
                   {showBackgroundChanger && capturedImages.length > 0 && (
-                    <BackgroundChanger
-                      imageUrl={capturedImages[0]}
-                      onBackgroundChanged={handleBackgroundChanged}
-                    />
+                    <div className="space-y-4">
+                      {editingImageIndex !== null && (
+                        <h3 className="text-xl font-bold text-center">
+                          עריכת תמונה {editingImageIndex + 1} מתוך {capturedImages.length}
+                        </h3>
+                      )}
+                      <BackgroundChanger
+                        imageUrl={editingImageIndex !== null ? capturedImages[editingImageIndex] : capturedImages[0]}
+                        onBackgroundChanged={handleBackgroundChanged}
+                      />
+                    </div>
                   )}
                 </div>
 
