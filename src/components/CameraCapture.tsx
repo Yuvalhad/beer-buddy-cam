@@ -502,10 +502,10 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
         {mode === 'burst' && capturedImages.length > 0 && capturedImages.length < photoCount && (
           <div className="mb-4 p-4 bg-primary/10 rounded-lg text-center">
             <p className="text-lg font-semibold">
-              תמונה {capturedImages.length}/{photoCount}
+              מצלם אוטומטית... {capturedImages.length}/{photoCount} ⏳
             </p>
             <p className="text-sm text-muted-foreground">
-              לחץ על הכפתור לצילום הבא
+              מחכה 1.5 שניות לתמונה הבאה
             </p>
           </div>
         )}
