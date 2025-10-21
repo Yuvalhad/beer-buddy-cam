@@ -185,11 +185,15 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
       const imageData = canvas.toDataURL('image/jpeg');
       
       if (mode === 'burst') {
+        // Capture current count before async operations
+        const currentCount = capturedImages.length;
+        console.log(`📸 Starting to capture burst photo ${currentCount + 1}/${photoCount}`);
+        
         // Save to storage immediately
         try {
           const response = await fetch(imageData);
           const blob = await response.blob();
-          const fileName = `beer-buddy-burst-${Date.now()}-${capturedImages.length}.jpg`;
+          const fileName = `beer-buddy-burst-${Date.now()}-${currentCount}.jpg`;
           
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('shared-media')
@@ -198,7 +202,10 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
               cacheControl: '604800',
             });
 
-          if (uploadError) throw uploadError;
+          if (uploadError) {
+            console.error('Upload error:', uploadError);
+            throw uploadError;
+          }
 
           const { data: urlData } = supabase.storage
             .from('shared-media')
@@ -211,24 +218,31 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
               media_type: 'photo',
             });
 
-          // Save only the URL, not the data
-          const newImages = [...capturedImages, urlData.publicUrl];
-          setCapturedImages(newImages);
+          // Update state with the new image URL
+          setCapturedImages(prev => {
+            const updated = [...prev, urlData.publicUrl];
+            console.log(`✅ Photo saved! Count: ${updated.length}/${photoCount}`);
+            return updated;
+          });
+          
           setCurrentPhotoIndex(prev => prev + 1);
           
-          console.log(`📸 Burst photo ${newImages.length}/${photoCount} saved to storage`);
+          const newCount = currentCount + 1;
           
-          if (newImages.length >= photoCount) {
+          if (newCount >= photoCount) {
+            console.log('🎉 All photos captured!');
             toast.success(`כל התמונות נצלמו! (${photoCount})`);
           } else {
-            toast.info(`תמונה ${newImages.length}/${photoCount}`);
+            toast.info(`תמונה ${newCount}/${photoCount}`);
+            console.log(`⏱️ Waiting 1.5s for next photo (${newCount + 1}/${photoCount})`);
             // Automatically trigger next photo after 1.5 seconds
             setTimeout(() => {
+              console.log('🎬 Triggering flash for next photo');
               setShowFlash(true);
             }, 1500);
           }
         } catch (error) {
-          console.error('Error saving photo:', error);
+          console.error('❌ Error saving photo:', error);
           toast.error('שגיאה בשמירת התמונה');
         }
       } else {
