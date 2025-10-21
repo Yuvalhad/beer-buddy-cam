@@ -170,7 +170,7 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
     capturePhoto();
   };
 
-  const capturePhoto = () => {
+  const capturePhoto = async () => {
     if (!videoRef.current || !canvasRef.current) return;
 
     const canvas = canvasRef.current;
@@ -185,20 +185,51 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
       const imageData = canvas.toDataURL('image/jpeg');
       
       if (mode === 'burst') {
-        const newImages = [...capturedImages, imageData];
-        setCapturedImages(newImages);
-        setCurrentPhotoIndex(prev => prev + 1);
-        
-        console.log(`📸 Burst photo ${newImages.length}/${photoCount} captured`);
-        
-        if (newImages.length >= photoCount) {
-          toast.success(`כל התמונות נצלמו! (${photoCount})`);
-        } else {
-          toast.info(`תמונה ${newImages.length}/${photoCount}`);
-          // Automatically trigger next photo after 1.5 seconds
-          setTimeout(() => {
-            setShowFlash(true);
-          }, 1500);
+        // Save to storage immediately
+        try {
+          const response = await fetch(imageData);
+          const blob = await response.blob();
+          const fileName = `beer-buddy-burst-${Date.now()}-${capturedImages.length}.jpg`;
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('shared-media')
+            .upload(fileName, blob, {
+              contentType: 'image/jpeg',
+              cacheControl: '604800',
+            });
+
+          if (uploadError) throw uploadError;
+
+          const { data: urlData } = supabase.storage
+            .from('shared-media')
+            .getPublicUrl(fileName);
+
+          await supabase
+            .from('shared_media')
+            .insert({
+              file_path: fileName,
+              media_type: 'photo',
+            });
+
+          // Save only the URL, not the data
+          const newImages = [...capturedImages, urlData.publicUrl];
+          setCapturedImages(newImages);
+          setCurrentPhotoIndex(prev => prev + 1);
+          
+          console.log(`📸 Burst photo ${newImages.length}/${photoCount} saved to storage`);
+          
+          if (newImages.length >= photoCount) {
+            toast.success(`כל התמונות נצלמו! (${photoCount})`);
+          } else {
+            toast.info(`תמונה ${newImages.length}/${photoCount}`);
+            // Automatically trigger next photo after 1.5 seconds
+            setTimeout(() => {
+              setShowFlash(true);
+            }, 1500);
+          }
+        } catch (error) {
+          console.error('Error saving photo:', error);
+          toast.error('שגיאה בשמירת התמונה');
         }
       } else {
         // For single photo mode
@@ -328,40 +359,11 @@ export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraC
     try {
       console.log('🔄 Starting share process...');
       
-      // For burst mode, upload all images
+      // For burst mode, images are already uploaded, just prepare URLs
       if (mode === 'burst' && capturedImages.length > 1) {
-        const uploadPromises = capturedImages.map(async (imageData, index) => {
-          const response = await fetch(imageData);
-          const blob = await response.blob();
-          const fileName = `beer-buddy-burst-${Date.now()}-${index}.jpg`;
-          
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('shared-media')
-            .upload(fileName, blob, {
-              contentType: blob.type,
-              cacheControl: '604800',
-            });
-
-          if (uploadError) throw uploadError;
-
-          const { data: urlData } = supabase.storage
-            .from('shared-media')
-            .getPublicUrl(fileName);
-
-          await supabase
-            .from('shared_media')
-            .insert({
-              file_path: fileName,
-              media_type: 'photo',
-            });
-
-          return urlData.publicUrl;
-        });
-
-        const urls = await Promise.all(uploadPromises);
-        setShareFileUrl(urls.join(','));
+        setShareFileUrl(capturedImages.join(','));
         setShowShareDialog(true);
-        toast.success(`${capturedImages.length} תמונות הועלו!`);
+        toast.success('מוכן לשיתוף!');
         return;
       }
 
