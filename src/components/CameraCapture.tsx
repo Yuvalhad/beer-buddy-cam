@@ -24,6 +24,8 @@ interface CameraCaptureProps {
 }
 
 export const CameraCapture = ({ mode, photoCount = 1, onBack, onReset }: CameraCaptureProps) => {
+  console.log('📸 CameraCapture mounted with:', { mode, photoCount });
+  
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);

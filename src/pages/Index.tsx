@@ -14,8 +14,14 @@ const Index = () => {
   };
 
   const handleSelectMode = (mode: PhotoMode, count?: number) => {
+    console.log('🎯 Mode selected:', mode, 'Count:', count);
     setSelectedMode(mode);
-    if (count) setPhotoCount(count);
+    if (count) {
+      console.log('✅ Setting photo count to:', count);
+      setPhotoCount(count);
+    } else {
+      console.log('⚠️ No count provided, keeping default:', photoCount);
+    }
   };
 
   const handleBack = () => {
