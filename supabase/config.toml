@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.send-media-email]
 verify_jwt = false
+
+[functions.photo-booth]
+verify_jwt = false
